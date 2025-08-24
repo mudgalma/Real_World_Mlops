@@ -1,0 +1,135 @@
+# src/train.py
+import os, json, time, argparse, tempfile
+import numpy as np
+import pandas as pd
+import mlflow
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score, r2_score, mean_squared_error
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.impute import SimpleImputer
+# OpenTelemetry (basic manual tracing for training)
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from src.utils import download_from_gdrive, apply_poisoning
+from src.schema import infer_feature_schema, save_feature_schema
+
+def setup_tracer():
+    provider = TracerProvider()
+    exporter = CloudTraceSpanExporter(project_id="uplifted-earth-468613-f3")  # put actual GCP project ID
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+    return trace.get_tracer(__name__)
+
+def train(
+    gdrive_link: str,
+    target: str,
+    problem_type: str,
+    poisoning_spec: str,
+    test_size: float = 0.2,
+    random_state: int = 42,
+):
+    tracer = setup_tracer()
+    mlflow.set_tracking_uri("mlruns")
+    mlflow.set_experiment("oppe")
+
+    with tracer.start_span("data_download"):
+        csv_path = download_from_gdrive(gdrive_link, "data/raw/dataset.csv")
+
+    with tracer.start_span("data_load"):
+        df = pd.read_csv(csv_path)
+
+    assert target in df.columns, f"Target '{target}' not in columns: {df.columns.tolist()}"
+
+    with tracer.start_span("poisoning"):
+        df_poisoned = apply_poisoning(df, target, problem_type, poisoning_spec)
+
+    with tracer.start_span("split"): 
+        X = df_poisoned.drop(columns=[target])
+        y = df_poisoned[target]
+        valid_idx = y.dropna().index
+        X, y = X.loc[valid_idx], y.loc[valid_idx]
+        if problem_type == "classification":
+            if y.dtype == "object" or str(y.dtype).startswith("category"):
+                if set(y.dropna().unique()) <= {"yes", "no"}:
+                    y = y.map({"no": 0, "yes": 1})
+                else:
+                    y, _ = pd.factorize(y)
+        numeric_cols = X.select_dtypes(include=['int64','float64']).columns.tolist()
+        cat_cols = X.select_dtypes(include=['object','category']).columns.tolist()
+
+        X[numeric_cols] = X[numeric_cols].fillna(X[numeric_cols].mean())
+        X[cat_cols] = X[cat_cols].fillna("missing")
+
+        if cat_cols:
+            enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+            X[cat_cols] = enc.fit_transform(X[cat_cols]).astype(str)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=random_state,
+            stratify=None if problem_type=="regression" else y
+        )
+
+    with tracer.start_span("schema"):
+        schema = infer_feature_schema(X_train)
+        os.makedirs("api/model", exist_ok=True)
+        save_feature_schema(schema, "api/model/schema.json")
+
+    with mlflow.start_run(run_name=f"{problem_type}-rf"):
+        mlflow.log_params({
+            "model": "RandomForest",
+            "problem_type": problem_type,
+            "test_size": test_size,
+            "random_state": random_state,
+            "poisoning_spec": poisoning_spec
+        })
+
+        with tracer.start_span("train_model") as span:
+            t0 = time.time()
+            if problem_type == "classification":
+                model = RandomForestClassifier(random_state=random_state)
+            else:
+                model = RandomForestRegressor(random_state=random_state)
+            model.fit(X_train, y_train)
+            train_time = time.time() - t0
+            span.set_attribute("train_time_sec", train_time)
+            mlflow.log_metric("train_time_sec", train_time)
+
+        with tracer.start_span("evaluate"):
+            preds = model.predict(X_test)
+            if problem_type == "classification":
+                acc = accuracy_score(y_test, preds)
+                f1 = f1_score(y_test, preds, average="weighted")
+                mlflow.log_metrics({"accuracy": acc, "f1_weighted": f1})
+                print(f"Accuracy={acc:.4f}  F1={f1:.4f}")
+            else:
+                rmse = mean_squared_error(y_test, preds, squared=False)
+                r2 = r2_score(y_test, preds)
+                mlflow.log_metrics({"rmse": rmse, "r2": r2})
+                print(f"RMSE={rmse:.4f}  R2={r2:.4f}")
+
+        with tracer.start_span("persist"):
+            joblib.dump(model, "api/model/model.pkl")
+            mlflow.log_artifact("api/model/model.pkl")
+            mlflow.log_artifact("api/model/schema.json")
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--gdrive_link", required=True, help="{{GDRIVE_LINK}}")
+    p.add_argument("--target", required=True, help="{{TARGET}}")
+    p.add_argument("--problem_type", required=True, choices=["classification","regression"], help="{{PROBLEM_TYPE}}")
+    p.add_argument("--poisoning_spec", required=True, help="{{POISONING_SPEC}} e.g. 'flip:0.1' or 'noise:0.1'")
+    args = p.parse_args()
+
+    os.makedirs("data/raw", exist_ok=True)
+    train(
+        gdrive_link=args.gdrive_link,
+        target=args.target,
+        problem_type=args.problem_type,
+        poisoning_spec=args.poisoning_spec,
+    )

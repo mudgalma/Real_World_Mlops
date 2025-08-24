@@ -1,0 +1,14 @@
+artifact_uri: /home/mahimudgal45_gmail_com/21F3002602_IITMBS_MLOPS_OPPE2_main/mlruns/609503073983666094/1652296f2ba941c09f2bf97d82e2c7c3/artifacts
+end_time: 1756041405774
+entry_point_name: ''
+experiment_id: '609503073983666094'
+lifecycle_stage: active
+run_id: 1652296f2ba941c09f2bf97d82e2c7c3
+run_name: classification-rf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756041405349
+status: 3
+tags: []
+user_id: mahimudgal45_gmail_com

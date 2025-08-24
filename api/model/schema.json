@@ -1,0 +1,34 @@
+{
+  "feature_names": [
+    "sno",
+    "age",
+    "gender",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "dtypes": {
+    "sno": "int64",
+    "age": "int64",
+    "gender": "object",
+    "cp": "int64",
+    "trestbps": "float64",
+    "chol": "float64",
+    "fbs": "int64",
+    "restecg": "int64",
+    "thalach": "float64",
+    "exang": "int64",
+    "oldpeak": "float64",
+    "slope": "int64",
+    "ca": "int64",
+    "thal": "int64"
+  }
+}
