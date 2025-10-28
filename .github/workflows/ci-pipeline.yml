@@ -1,0 +1,44 @@
+name: DVC Pipeline with GCP
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  run-dvc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install dvc[gdrive,gcs] google-cloud-storage
+
+      - name: Set up GCP credentials
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: |
+          echo "$GCP_CREDENTIALS" > gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Verify GCP authentication
+        run: gcloud auth activate-service-account --key-file=gcp-key.json || echo "gcloud not needed here"
+
+      - name: Pull latest DVC data
+        run: dvc pull -v
+
+      - name: Run model or data pipeline (if applicable)
+        run: echo "✅ DVC data fetched successfully"
+
+      - name: Push updated data (if modified)
+        if: github.event_name == 'push'
+        run: dvc push -v
