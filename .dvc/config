@@ -1,0 +1,5 @@
+[core]
+    remote = gcsremote
+['remote "gcsremote"']
+    url = gs://heart-disease-mlops-data
+    credentialpath = /home/mahimudgal45_gmail_com/gcp-key.json
