@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install dvc[gdrive,gcs] google-cloud-storage
+          pip install "dvc[gs]" google-cloud-storage
 
       - name: Set up GCP credentials
         env:
