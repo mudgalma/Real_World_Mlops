@@ -41,8 +41,12 @@ jobs:
           gsutil ls gs://heart-disease-mlops-data || echo "❌ Could not list bucket contents"
           
       - name: Pull latest DVC data
-        run: dvc pull -v
-
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          echo "Using credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+          dvc pull -v
+          
       - name: Run model or data pipeline (if applicable)
         run: echo "✅ DVC data fetched successfully"
 
