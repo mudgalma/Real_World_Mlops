@@ -34,6 +34,11 @@ jobs:
         run: |
           gcloud auth activate-service-account --key-file=gcp-key.json
           gcloud config list
+
+      - name: Verify bucket access
+        run: |
+          echo "Checking GCS bucket access..."
+          gsutil ls gs://heart-disease-mlops-data || echo "❌ Could not list bucket contents"
           
       - name: Pull latest DVC data
         run: dvc pull -v
