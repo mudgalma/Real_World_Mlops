@@ -25,9 +25,9 @@ jobs:
 
       - name: Set up GCP credentials
         env:
-          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS_B64}}
         run: |
-          printf '%s' "$GCP_CREDENTIALS" > gcp-key.json
+          printf '%s' "$GCP_CREDENTIALS_B64" > gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
       
       - name: Verify GCP authentication
