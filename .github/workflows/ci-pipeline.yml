@@ -11,45 +11,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------ 1️⃣ Checkout repo ------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------ 2️⃣ Setup Python ------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # ------------------ 3️⃣ Install dependencies ------------------
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install "dvc[gs]" google-cloud-storage
-          
-      - name: Set up GCP credentials
-        env:
-          GCP_CREDENTIALS_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
-        run: |
-          echo "$GCP_CREDENTIALS_B64" | base64 -d > gcp-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
-      
-      - name: Verify GCP authentication
-        run: |
-          gcloud auth activate-service-account --key-file=gcp-key.json
-          gcloud config list
 
+      # ------------------ 4️⃣ Decode & configure GCP credentials ------------------
+      - name: Set up GCP credentials and authenticate
+        env:
+          GCP_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
+        run: |
+          set -e
+          echo "Decoding service account key..."
+          echo "$GCP_B64" | base64 -d > gcp-key.json
+          python3 -m json.tool gcp-key.json > /dev/null && echo "✓ Valid JSON key"
+
+          echo "Installing Google Cloud CLI..."
+          sudo apt-get update -qq && sudo apt-get install -y google-cloud-cli
+
+          echo "Authenticating with GCP..."
+          gcloud auth activate-service-account --key-file=gcp-key.json
+          gcloud config set project mlops-466312
+
+          # Export for later steps
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+
+      # ------------------ 5️⃣ Verify bucket access ------------------
       - name: Verify bucket access
         run: |
           echo "Checking GCS bucket access..."
-          gsutil ls gs://heart-disease-mlops-data || echo "❌ Could not list bucket contents"
-          
+          gsutil ls gs://heart-disease-mlops-data
+
+      # ------------------ 6️⃣ Configure DVC to use same credentials ------------------
+      - name: Configure DVC remote credentials
+        run: |
+          dvc remote modify gcsremote credentialpath "$(pwd)/gcp-key.json" --local
+          dvc remote modify gcsremote project mlops-466312 --local
+
+      # ------------------ 7️⃣ Pull latest DVC data ------------------
       - name: Pull latest DVC data
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
           echo "Using credentials: $GOOGLE_APPLICATION_CREDENTIALS"
           dvc pull -v
-          
+
+      # ------------------ 8️⃣ Run model or data pipeline ------------------
       - name: Run model or data pipeline (if applicable)
         run: echo "✅ DVC data fetched successfully"
 
-      - name: Push updated data (if modified)
+      # ------------------ 9️⃣ Push updated data (if modified) ------------------
+      - name: Push updated data
         if: github.event_name == 'push'
         run: dvc push -v
