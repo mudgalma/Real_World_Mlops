@@ -29,6 +29,7 @@ jobs:
           pip cache purge || true
           pip install "pydantic==1.10.15"
           pip install "pandas-profiling==3.6.6"
+          pip install "dvc[gs]" --no-cache-dir
           pip install -r requirements.txt --no-cache-dir
 
           
