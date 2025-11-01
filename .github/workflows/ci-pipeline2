@@ -1,0 +1,65 @@
+name: DVC + Validation + Train Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'   # nightly run at 02:00 UTC (simulate automated ingestion)
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install system deps & dvc-gs
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dvc[gs]" pandas pandas-profiling google-cloud-storage mlflow
+
+      - name: Decode GCP credentials
+        env:
+          GCP_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
+        run: |
+          echo "$GCP_B64" | base64 -d > gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Test GCP access (quick)
+        run: |
+          python - <<'PY'
+          from google.cloud import storage
+          import os
+          client = storage.Client()
+          bnames = [b.name for b in client.list_buckets(prefix="")]
+          print("Buckets available (sample):", bnames[:5])
+          PY
+
+      - name: DVC pull (get data)
+        run: dvc pull -v
+
+      - name: Data validation
+        run: python scripts/data_validation.py
+
+      - name: Drift check
+        run: python scripts/drift_check.py
+
+      - name: Preprocess (placeholder)
+        run: |
+          echo "Do your preprocessing here (scripts/preprocess.py)"
+          # python scripts/preprocess.py
+
+      - name: Train model (placeholder)
+        run: |
+          echo "Train step (scripts/train.py) - replace with your training code"
+          # python scripts/train.py
+
+      - name: DVC push (push any new tracked artifacts)
+        if: github.event_name == 'push'
+        run: dvc push -v
