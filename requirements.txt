@@ -2,8 +2,6 @@ pandas
 numpy
 scikit-learn
 mlflow
-fastapi
-uvicorn
 gunicorn
 shap
 fairlearn
@@ -11,7 +9,13 @@ evidently
 matplotlib
 jinja2
 gdown
-pydantic>= 2.7
+# API layer (compatible with pydantic v1)
+fastapi==0.95.2
+uvicorn==0.22.0
+pydantic==1.10.15
+pydantic-settings==1.2.0
+
+# Profiling / validation
 ydata-profiling==4.6.0
 opentelemetry-api
 opentelemetry-sdk
