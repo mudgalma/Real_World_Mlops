@@ -20,3 +20,4 @@ opentelemetry-instrumentation-requests
 python-multipart
 opentelemetry-exporter-gcp-trace
 google-cloud-trace
+pydantic-settings==2.11.0

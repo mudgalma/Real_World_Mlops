@@ -1,0 +1,104 @@
+{
+  "n_rows": 303,
+  "columns": [
+    "sno",
+    "age",
+    "gender",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal",
+    "target"
+  ],
+  "dtypes": {
+    "sno": "int64",
+    "age": "int64",
+    "gender": "object",
+    "cp": "int64",
+    "trestbps": "float64",
+    "chol": "float64",
+    "fbs": "int64",
+    "restecg": "int64",
+    "thalach": "float64",
+    "exang": "int64",
+    "oldpeak": "float64",
+    "slope": "int64",
+    "ca": "int64",
+    "thal": "int64",
+    "target": "object"
+  },
+  "summary": {
+    "sno": {
+      "mean": 151.0,
+      "min": 0.0,
+      "max": 302.0
+    },
+    "age": {
+      "mean": 54.366336633663366,
+      "min": 29.0,
+      "max": 77.0
+    },
+    "cp": {
+      "mean": 0.966996699669967,
+      "min": 0.0,
+      "max": 3.0
+    },
+    "trestbps": {
+      "mean": 131.7123745819398,
+      "min": 94.0,
+      "max": 200.0
+    },
+    "chol": {
+      "mean": 246.31788079470198,
+      "min": 126.0,
+      "max": 564.0
+    },
+    "fbs": {
+      "mean": 0.1485148514851485,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "restecg": {
+      "mean": 0.528052805280528,
+      "min": 0.0,
+      "max": 2.0
+    },
+    "thalach": {
+      "mean": 149.86577181208054,
+      "min": 71.0,
+      "max": 202.0
+    },
+    "exang": {
+      "mean": 0.32673267326732675,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "oldpeak": {
+      "mean": 1.0396039603960396,
+      "min": 0.0,
+      "max": 6.2
+    },
+    "slope": {
+      "mean": 1.3993399339933994,
+      "min": 0.0,
+      "max": 2.0
+    },
+    "ca": {
+      "mean": 0.7293729372937293,
+      "min": 0.0,
+      "max": 4.0
+    },
+    "thal": {
+      "mean": 2.3135313531353137,
+      "min": 0.0,
+      "max": 3.0
+    }
+  }
+}
