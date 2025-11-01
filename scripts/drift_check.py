@@ -5,7 +5,7 @@ from ydata_profiling import ProfileReport
 CURRENT_METRICS = "reports/data_metrics.json"
 BASELINE_METRICS = "reports/prev_data_metrics.json"
 DRIFT_THRESHOLD = 0.2   # mean change > 20% = drift
-CURRENT_DATA = "data/raw/heart.csv"
+CURRENT_DATA = "data/raw/dataset.csv"
 
 # --- Load current data ---
 df = pd.read_csv(CURRENT_DATA)
