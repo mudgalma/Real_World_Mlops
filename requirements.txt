@@ -12,6 +12,7 @@ matplotlib
 jinja2
 gdown
 pydantic>= 2.7
+ydata-profiling==4.6.0
 opentelemetry-api
 opentelemetry-sdk
 opentelemetry-exporter-otlp
