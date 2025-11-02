@@ -37,9 +37,9 @@ jobs:
           gsutil cp gs://heart-disease-mlops-data/new_batches/latest_batch.csv data/new_batch/new_batch.csv || exit 0
           ls -la data/new_batch
 
-      - name: Run drift check on new batch
-        run: |
-          python scripts/drift_check.py --new data/new_batch/new_batch.csv --min_new_rows 30 --ks_p_threshold 0.01
+      - name: Drift check on new batch
+        run: python scripts/drift_check.py --mode ingest --batch data/new_batch/new_batch.csv  
+
 
       - name: Trigger retrain on drift
         if: failure() && always()
