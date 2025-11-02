@@ -1,135 +1,280 @@
 # src/train.py
-import os, json, time, argparse, tempfile
+"""
+Production-ready training script.
+
+Usage (example):
+  python src/train.py --target target --problem_type classification --model_dir api/model --test_size 0.2
+"""
+import os
+import json
+import time
+import argparse
+import warnings
+from typing import Optional
+
 import numpy as np
 import pandas as pd
-import mlflow
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, r2_score, mean_squared_error
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import OrdinalEncoder
+import mlflow
+import mlflow.sklearn
+from mlflow.models.signature import infer_signature
+
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from sklearn.impute import SimpleImputer
-# OpenTelemetry (basic manual tracing for training)
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score
 
-from src.utils import download_from_gdrive, apply_poisoning
-from src.schema import infer_feature_schema, save_feature_schema
+# OTEL tracing (safe / optional)
+try:
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+    OTEL_AVAILABLE = True
+except Exception:
+    OTEL_AVAILABLE = False
 
-def setup_tracer():
-    provider = TracerProvider()
-    exporter = CloudTraceSpanExporter(project_id="uplifted-earth-468613-f3")  # put actual GCP project ID
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-    return trace.get_tracer(__name__)
+# local imports
+from src.utils import apply_poisoning  # allowed but not used by default
+from src.schema import infer_feature_schema, save_feature_schema  # keep if present
 
-def train(
-    gdrive_link: str,
+warnings.filterwarnings("ignore")
+
+
+def setup_tracer(project_id: Optional[str] = None):
+    """Set up OTEL tracing if available and env allows it. Fail-safe (no exception)."""
+    if not OTEL_AVAILABLE:
+        return None
+    try:
+        provider = TracerProvider()
+        exporter = CloudTraceSpanExporter(project_id=project_id) if project_id else None
+        if exporter:
+            processor = BatchSpanProcessor(exporter)
+            provider.add_span_processor(processor)
+            trace.set_tracer_provider(provider)
+            return trace.get_tracer(__name__)
+    except Exception:
+        # don't crash training if OTEL misconfigured
+        return None
+    return None
+
+
+def build_preprocessor(X: pd.DataFrame):
+    """Infer numeric and categorical cols and return ColumnTransformer."""
+    numeric_cols = X.select_dtypes(include=["number"]).columns.tolist()
+    cat_cols = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+
+    num_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="mean")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+    cat_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("encoder", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)),
+        ]
+    )
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", num_transformer, numeric_cols),
+            ("cat", cat_transformer, cat_cols),
+        ],
+        remainder="drop",
+        sparse_threshold=0,
+    )
+    return preprocessor, numeric_cols, cat_cols
+
+
+def build_model(problem_type: str, random_state: int = 42):
+    if problem_type == "classification":
+        return RandomForestClassifier(random_state=random_state, n_jobs=-1)
+    else:
+        return RandomForestRegressor(random_state=random_state, n_jobs=-1)
+
+
+def save_pipeline(pipeline: Pipeline, model_dir: str):
+    os.makedirs(model_dir, exist_ok=True)
+    out_path = os.path.join(model_dir, "pipeline.pkl")
+    joblib.dump(pipeline, out_path)
+    return out_path
+
+
+def save_schema_from_df(df: pd.DataFrame, out_path: str):
+    schema = {"columns": df.columns.tolist(), "dtypes": {c: str(df[c].dtype) for c in df.columns}}
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(schema, f, indent=2)
+    return out_path
+
+
+def train_main(
+    data_path: str,
     target: str,
     problem_type: str,
-    poisoning_spec: str,
+    model_dir: str = "api/model",
     test_size: float = 0.2,
     random_state: int = 42,
+    poison: Optional[str] = None,
+    tune: bool = False,
 ):
-    tracer = setup_tracer()
+    tracer = setup_tracer()  # safe
+
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"Dataset not found at {data_path}. Run `dvc pull` first.")
+
+    # set mlflow
     mlflow.set_tracking_uri("mlruns")
-    mlflow.set_experiment("oppe")
+    mlflow.set_experiment("real_world_heart_mlop")
 
-    with tracer.start_span("data_download"):
-        csv_path = download_from_gdrive(gdrive_link, "data/raw/dataset.csv")
+    # load data
+    df = pd.read_csv(data_path)
+    if target not in df.columns:
+        raise ValueError(f"Target '{target}' not found in data columns: {df.columns.tolist()}")
 
-    with tracer.start_span("data_load"):
-        df = pd.read_csv(csv_path)
+    # optional poisoning only for experiments (not default)
+    if poison:
+        df = apply_poisoning(df, target, problem_type, poison)
 
-    assert target in df.columns, f"Target '{target}' not in columns: {df.columns.tolist()}"
+    # drop rows with missing target
+    df = df.dropna(subset=[target]).reset_index(drop=True)
 
-    with tracer.start_span("poisoning"):
-        df_poisoned = apply_poisoning(df, target, problem_type, poisoning_spec)
+    # separate features and target
+    X = df.drop(columns=[target])
+    y = df[target]
 
-    with tracer.start_span("split"): 
-        X = df_poisoned.drop(columns=[target])
-        y = df_poisoned[target]
-        valid_idx = y.dropna().index
-        X, y = X.loc[valid_idx], y.loc[valid_idx]
-        if problem_type == "classification":
-            if y.dtype == "object" or str(y.dtype).startswith("category"):
-                if set(y.dropna().unique()) <= {"yes", "no"}:
-                    y = y.map({"no": 0, "yes": 1})
-                else:
-                    y, _ = pd.factorize(y)
-        numeric_cols = X.select_dtypes(include=['int64','float64']).columns.tolist()
-        cat_cols = X.select_dtypes(include=['object','category']).columns.tolist()
+    # If classification with string labels, convert to numeric
+    if problem_type == "classification" and (y.dtype == "object" or str(y.dtype).startswith("category")):
+        if set(y.unique()) <= {"yes", "no"}:
+            y = y.map({"no": 0, "yes": 1})
+        else:
+            y, _ = pd.factorize(y)
 
-        X[numeric_cols] = X[numeric_cols].fillna(X[numeric_cols].mean())
-        X[cat_cols] = X[cat_cols].fillna("missing")
+    # save pre-schema (before encoding) for API schema
+    save_schema_from_df(X, os.path.join(model_dir, "schema.json"))
 
-        if cat_cols:
-            enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-            X[cat_cols] = enc.fit_transform(X[cat_cols]).astype(str)
+    # split
+    stratify = None if problem_type == "regression" else y
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=stratify
+    )
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state,
-            stratify=None if problem_type=="regression" else y
-        )
+    # build preprocessor based on X_train
+    preprocessor, numeric_cols, cat_cols = build_preprocessor(X_train)
 
-    with tracer.start_span("schema"):
-        schema = infer_feature_schema(X_train)
-        os.makedirs("api/model", exist_ok=True)
-        save_feature_schema(schema, "api/model/schema.json")
+    # assemble pipeline
+    model = build_model(problem_type=problem_type, random_state=random_state)
+    pipeline = Pipeline(steps=[("preprocess", preprocessor), ("model", model)])
 
-    with mlflow.start_run(run_name=f"{problem_type}-rf"):
+    # MLflow autolog (safe settings)
+    mlflow.sklearn.autolog(log_input_examples=True, disable=False, silent=True)
+
+    with mlflow.start_run(run_name=f"{problem_type}_rf_run"):
         mlflow.log_params({
-            "model": "RandomForest",
             "problem_type": problem_type,
             "test_size": test_size,
             "random_state": random_state,
-            "poisoning_spec": poisoning_spec
+            "poison": poison or "none",
+            "tune": bool(tune),
         })
 
-        with tracer.start_span("train_model") as span:
+        # optional hyperparameter tuning (lightweight)
+        if tune:
+            param_dist = {
+                "model__n_estimators": [10, 30, 50],
+                "model__max_depth": [None, 5, 10],
+                "model__min_samples_split": [2, 5],
+            }
+            search = RandomizedSearchCV(
+                pipeline,
+                param_distributions=param_dist,
+                n_iter=3,
+                cv=3,
+                random_state=random_state,
+                n_jobs=-1,
+                verbose=0,
+            )
             t0 = time.time()
-            if problem_type == "classification":
-                model = RandomForestClassifier(random_state=random_state)
-            else:
-                model = RandomForestRegressor(random_state=random_state)
-            model.fit(X_train, y_train)
+            search.fit(X_train, y_train)
             train_time = time.time() - t0
-            span.set_attribute("train_time_sec", train_time)
+            best = search.best_estimator_
+            pipeline = best
+            mlflow.log_metric("train_time_sec", train_time)
+            mlflow.log_params({"tuned": True, **search.best_params_})
+        else:
+            t0 = time.time()
+            pipeline.fit(X_train, y_train)
+            train_time = time.time() - t0
             mlflow.log_metric("train_time_sec", train_time)
 
-        with tracer.start_span("evaluate"):
-            preds = model.predict(X_test)
-            if problem_type == "classification":
-                acc = accuracy_score(y_test, preds)
-                f1 = f1_score(y_test, preds, average="weighted")
-                mlflow.log_metrics({"accuracy": acc, "f1_weighted": f1})
-                print(f"Accuracy={acc:.4f}  F1={f1:.4f}")
-            else:
-                rmse = mean_squared_error(y_test, preds, squared=False)
-                r2 = r2_score(y_test, preds)
-                mlflow.log_metrics({"rmse": rmse, "r2": r2})
-                print(f"RMSE={rmse:.4f}  R2={r2:.4f}")
+        # predictions and metrics
+        preds = pipeline.predict(X_test)
+        if problem_type == "classification":
+            acc = accuracy_score(y_test, preds)
+            f1 = f1_score(y_test, preds, average="weighted")
+            mlflow.log_metrics({"accuracy": acc, "f1_weighted": f1})
+            print(f"Accuracy={acc:.4f}  F1={f1:.4f}")
+        else:
+            rmse = mean_squared_error(y_test, preds, squared=False)
+            r2 = r2_score(y_test, preds)
+            mlflow.log_metrics({"rmse": rmse, "r2": r2})
+            print(f"RMSE={rmse:.4f}  R2={r2:.4f}")
 
-        with tracer.start_span("persist"):
-            joblib.dump(model, "api/model/model.pkl")
-            mlflow.log_artifact("api/model/model.pkl")
-            mlflow.log_artifact("api/model/schema.json")
+        # save pipeline locally and log model with signature
+        os.makedirs(model_dir, exist_ok=True)
+        pipeline_path = save_pipeline(pipeline, model_dir)
 
-if __name__ == "__main__":
+        # infer signature using a small sample from training input
+        try:
+            signature = infer_signature(X_train.iloc[:5], pipeline.predict(X_train.iloc[:5]))
+        except Exception:
+            signature = None
+
+        mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            artifact_path="model",
+            registered_model_name=None,
+            signature=signature,
+        )
+
+        # also save artifacts locally for API usage
+        mlflow.log_artifact(pipeline_path, artifact_path="artifacts")
+        schema_path = os.path.join(model_dir, "schema.json")
+        mlflow.log_artifact(schema_path, artifact_path="artifacts")
+
+    print("Training complete. Pipeline saved to:", pipeline_path)
+    return pipeline_path
+
+
+def parse_args_and_run():
     p = argparse.ArgumentParser()
-    p.add_argument("--gdrive_link", required=True, help="{{GDRIVE_LINK}}")
-    p.add_argument("--target", required=True, help="{{TARGET}}")
-    p.add_argument("--problem_type", required=True, choices=["classification","regression"], help="{{PROBLEM_TYPE}}")
-    p.add_argument("--poisoning_spec", required=True, help="{{POISONING_SPEC}} e.g. 'flip:0.1' or 'noise:0.1'")
+    p.add_argument("--data_path", default="data/raw/dataset.csv", help="Path to dataset (DVC-tracked)")
+    p.add_argument("--target", required=True, help="Target column name")
+    p.add_argument("--problem_type", required=True, choices=["classification", "regression"])
+    p.add_argument("--model_dir", default="api/model", help="Model output directory")
+    p.add_argument("--test_size", type=float, default=0.2)
+    p.add_argument("--random_state", type=int, default=42)
+    p.add_argument("--poison", default=None, help="Optional poison spec for simulation (e.g. 'flip:0.1')")
+    p.add_argument("--tune", action="store_true", help="Run quick hyperparameter tuning (small search)")
     args = p.parse_args()
 
-    os.makedirs("data/raw", exist_ok=True)
-    train(
-        gdrive_link=args.gdrive_link,
+    train_main(
+        data_path=args.data_path,
         target=args.target,
         problem_type=args.problem_type,
-        poisoning_spec=args.poisoning_spec,
+        model_dir=args.model_dir,
+        test_size=args.test_size,
+        random_state=args.random_state,
+        poison=args.poison,
+        tune=args.tune,
     )
+
+
+if __name__ == "__main__":
+    parse_args_and_run()
+
