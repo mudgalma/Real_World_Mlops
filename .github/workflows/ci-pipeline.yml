@@ -92,7 +92,7 @@ jobs:
 
 
       - name: Drift check (Evidently)
-        run: python scripts/evidently_drift.py
+        run: python scripts/evidently_drift.py --mode ci
 
       - name: Preprocess (placeholder)
         run: |
