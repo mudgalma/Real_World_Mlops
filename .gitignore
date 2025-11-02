@@ -1,11 +1,23 @@
-venv/
-__pycache__/
-mlruns/
-data/new_batch/
-data/raw/
+api/model/pipeline.pkl
+
+# Ignore raw data itself
+data/raw/*
 !data/raw/*.dvc
 !data/raw/.gitignore
-*.pkl
-*.csv
-api/model/model.pkl
-api/model/pipeline.pkl
+
+# Ignore new batch data, but not pointer files
+data/new_batch/*
+!data/new_batch/*.dvc
+!data/new_batch/.gitignore
+
+# Ignore virtual environments
+venv/
+__pycache__/
+
+# Ignore mlflow artifacts
+mlruns/
+
+# Ignore model binaries (only keep DVC pointer)
+api/model/*.pkl
+!api/model/*.dvc
+
