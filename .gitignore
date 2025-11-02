@@ -3,6 +3,8 @@ __pycache__/
 mlruns/
 data/new_batch/
 data/raw/
+!data/raw/*.dvc
+!data/raw/.gitignore
 *.pkl
 *.csv
 api/model/model.pkl
