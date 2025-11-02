@@ -1,1 +1,9 @@
 venv/
+__pycache__/
+mlruns/
+data/new_batch/
+data/raw/
+*.pkl
+*.csv
+api/model/model.pkl
+api/model/pipeline.pkl
