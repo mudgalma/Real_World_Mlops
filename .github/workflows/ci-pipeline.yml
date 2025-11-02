@@ -78,6 +78,9 @@ jobs:
       - name: Drift check
         run: python scripts/drift_check.py
 
+      - name: Drift check (Evidently)
+        run: python scripts/evidently_drift.py
+
       - name: Preprocess (placeholder)
         run: |
           echo "Do your preprocessing here (scripts/preprocess.py)"
