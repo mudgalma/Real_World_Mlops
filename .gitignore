@@ -17,7 +17,10 @@ __pycache__/
 # Ignore mlflow artifacts
 mlruns/
 
+
 # Ignore model binaries (only keep DVC pointer)
 api/model/*.pkl
 !api/model/*.dvc
-
+*.swp
+*.swo
+*.save

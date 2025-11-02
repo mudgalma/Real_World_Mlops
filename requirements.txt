@@ -5,7 +5,7 @@ mlflow
 gunicorn
 shap
 fairlearn
-evidently
+evidently==0.7.3
 matplotlib
 jinja2
 gdown
