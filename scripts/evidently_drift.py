@@ -55,8 +55,11 @@ if args.mode == "ci":
 
     # Prepare Evidently drift report
     report = Report(metrics=[DataDriftPreset()])
-    report.run(reference_data=df_base, current_data=df_cur)
-    report.save_html(str(HTML_OUT))
+    result = report.run(reference_data=df_base, current_data=df_cur)
+    result.save_html(str(HTML_OUT))
+    # report = Report(metrics=[DataDriftPreset()])
+    # report.run(reference_data=df_base, current_data=df_cur)
+    # report.save_html(str(HTML_OUT))
 
     # Save JSON summary (contains drift metrics)
     json_result = report.as_dict()
@@ -85,8 +88,8 @@ elif args.mode == "ingest":
 
     # Prepare Evidently report
     report = Report(metrics=[DataDriftPreset()])
-    report.run(reference_data=df_base, current_data=df_new)
-    report.save_html(str(HTML_OUT))
+    result = report.run(reference_data=df_base, current_data=df_cur)
+    result.save_html(str(HTML_OUT))
 
     # Save JSON summary
     json_result = report.as_dict()
