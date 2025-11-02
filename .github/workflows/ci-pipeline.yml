@@ -28,6 +28,9 @@ jobs:
       
           # Install pydantic first (needed by FastAPI)
           pip install pydantic==1.10.15
+
+          # Install DVC first (so dependency conflict doesn’t break it)
+          pip install "dvc[gs]" --no-cache-dir
       
           # 1️⃣ Install Evidently WITHOUT any dependencies
           pip install evidently==0.7.3 --no-deps
