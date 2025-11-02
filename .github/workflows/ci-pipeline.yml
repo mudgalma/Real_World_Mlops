@@ -83,11 +83,15 @@ jobs:
           echo "Do your preprocessing here (scripts/preprocess.py)"
           # python scripts/preprocess.py
 
-      - name: Train model (placeholder)
+      - name: Train model
         run: |
-          echo "Train step (scripts/train.py) - replace with your training code"
-          # python scripts/train.py
+          python -m src.train --target target --problem_type classification --tune
 
-      - name: DVC push (push any new tracked artifacts)
-        if: github.event_name == 'push'
+      - name: Track trained model (DVC)
+        run: |
+          dvc add api/model/pipeline.pkl
+          git add api/model/pipeline.pkl.dvc
+          git commit -m "Update trained model" || echo "No changes"
+
+      - name: Push model to DVC remote
         run: dvc push -v
