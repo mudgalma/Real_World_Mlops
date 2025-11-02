@@ -1,54 +1,94 @@
-# scripts/drift_check.py
 import json, sys, os, argparse
-import numpy as np
 import pandas as pd
-from scipy.stats import ks_2samp
+from ydata_profiling import ProfileReport
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--new", required=True, help="Path to new batch CSV")
-parser.add_argument("--baseline", default="reports/data_metrics.json", help="Baseline metrics")
-parser.add_argument("--min_new_rows", type=int, default=30, help="Minimum new rows to consider retraining")
-parser.add_argument("--ks_p_threshold", type=float, default=0.01, help="KS-test p-value threshold")
-args = parser.parse_args()
 
-if not os.path.exists(args.new):
-    print("Missing new batch:", args.new); sys.exit(2)
+CURRENT_METRICS = "reports/data_metrics.json"
+BASELINE_METRICS = "reports/prev_data_metrics.json"
+DRIFT_THRESHOLD = 0.20   # 20% change triggers drift
 
-new_df = pd.read_csv(args.new)
-if len(new_df) < args.min_new_rows:
-    print(f"New batch too small ({len(new_df)} < {args.min_new_rows}) — store but do not trigger retrain.")
-    sys.exit(0)  # not drift-trigger
 
-# Load baseline (derived from full dataset metrics captured previously)
-if not os.path.exists(args.baseline):
-    print("Baseline metrics missing:", args.baseline)
-    sys.exit(2)
+def load_stats(path):
+    if not os.path.exists(path):
+        return None
+    return json.load(open(path))
 
-base = json.load(open(args.baseline))
-# load the actual full baseline dataset to compare distributions if needed (optional)
-# For simplicity, compare numeric columns with KS test against baseline values from metrics file:
-drift_detected = False
-reasons = []
 
-# compute lightweight stats by reloading baseline dataset if available
-try:
-    full_df = pd.read_csv("data/raw/dataset.csv")
-except Exception:
-    full_df = None
+def compare_stats(current, baseline):
+    """Return True if drift detected."""
+    for feature, cur_stats in current.get("summary", {}).items():
+        base_stats = baseline.get("summary", {}).get(feature)
+        
+        if not base_stats:
+            print(f"⚠️ New feature detected: {feature} → DRIFT")
+            return True
 
-num_cols = new_df.select_dtypes(include=['number']).columns.tolist()
-for c in num_cols:
-    if full_df is not None and c in full_df.columns:
-        stat = ks_2samp(full_df[c].dropna(), new_df[c].dropna())
-        pval = stat.pvalue
-        if pval < args.ks_p_threshold:
-            drift_detected = True
-            reasons.append(f"KS p<{args.ks_p_threshold} for {c} (p={pval:.3e})")
+        base_mean = base_stats.get("mean", 0)
+        cur_mean = cur_stats.get("mean", 0)
 
-# Final decision
-if drift_detected:
-    print("DRIFT detected:", reasons)
-    sys.exit(1)
-else:
-    print("No significant drift detected.")
+        if base_mean == 0:
+            continue
+
+        rel_change = abs(cur_mean - base_mean) / abs(base_mean)
+
+        if rel_change > DRIFT_THRESHOLD:
+            print(f"🚨 DRIFT DETECTED for {feature}: change = {rel_change:.2f}")
+            return True
+
+    return False
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["ci", "ingest"], required=True)
+    parser.add_argument("--batch", help="Path to new batch for ingestion mode")
+    args = parser.parse_args()
+
+    # --- Determine dataset path ---
+    if args.mode == "ci":
+        data_path = "data/raw/dataset.csv"
+    else:
+        if not args.batch:
+            print("❌ Ingest mode requires --batch file")
+            sys.exit(2)
+        data_path = args.batch
+
+    if not os.path.exists(data_path):
+        print(f"❌ Data not found: {data_path}")
+        sys.exit(2)
+
+    # --- Compute stats + save HTML report ---
+    df = pd.read_csv(data_path)
+    print(f"✅ Loaded data: {data_path}")
+
+    profile = ProfileReport(df, title="Data Drift Report", explorative=True)
+    profile.to_file("reports/drift_report.html")
+    print("✅ Saved drift_report.html")
+
+    # --- Metrics must already exist (from validation step) ---
+    if not os.path.exists(CURRENT_METRICS):
+        print(f"❌ Missing metrics file: {CURRENT_METRICS}")
+        sys.exit(2)
+
+    current_stats = load_stats(CURRENT_METRICS)
+    baseline_stats = load_stats(BASELINE_METRICS)
+
+    # First run → create baseline
+    if baseline_stats is None:
+        json.dump(current_stats, open(BASELINE_METRICS, "w"), indent=2)
+        print("✅ No baseline found. Saved current stats as baseline.")
+        sys.exit(0)
+
+    # Compare
+    drift = compare_stats(current_stats, baseline_stats)
+
+    if drift:
+        print("🚨 Drift detected.")
+        sys.exit(1)
+
+    print("✅ No drift detected.")
     sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
