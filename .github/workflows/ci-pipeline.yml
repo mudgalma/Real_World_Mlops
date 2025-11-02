@@ -36,7 +36,7 @@ jobs:
           pip install evidently==0.7.3 --no-deps
       
           # 2️⃣ Install Evidently dependencies manually (ALL except pydantic)
-          pip install deprecation typing-inspect uuid6 numpy pandas scipy requests PyYAML jinja2 matplotlib plotly
+          pip install nltk deprecation typing-inspect uuid6 numpy pandas scipy requests PyYAML jinja2 matplotlib plotly
       
           # 3️⃣ Install YOUR requirements file
           # Ignore Evidently from requirements.txt to avoid reinstalling with deps
