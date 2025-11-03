@@ -109,5 +109,13 @@ jobs:
           git add api/model/pipeline.pkl.dvc
           git commit -m "Update trained model" || echo "No changes"
 
+      
+      - name: Upload model + schema for serving
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          gsutil cp api/model/pipeline.pkl gs://heart-disease-mlops-data/models/pipeline.pkl
+          gsutil cp api/model/schema.json gs://heart-disease-mlops-data/models/schema.json
+
       - name: Push model to DVC remote
         run: dvc push -v
