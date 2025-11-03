@@ -63,8 +63,6 @@ jobs:
           dvc add api/model/pipeline.pkl
           git add api/model/pipeline.pkl.dvc
           git commit -m "Auto-retrain: new model" || echo "No changes"
-          dvc push -v
-          git push origin main
 
       - name: Upload model + schema for serving
         env:
@@ -72,4 +70,19 @@ jobs:
         run: |
           gsutil cp api/model/pipeline.pkl gs://heart-disease-mlops-data/models/pipeline.pkl
           gsutil cp api/model/schema.json gs://heart-disease-mlops-data/models/schema.json
+
+      - name: Explainability Report (SHAP)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          python scripts/explain.py 
+      
+      - name: Fairness Report
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          python scripts/fairlearn.py 
+
+      - name: Push model to DVC remote
+        run: dvc push -v
       
