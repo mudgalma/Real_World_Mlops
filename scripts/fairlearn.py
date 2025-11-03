@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""
+Fairness Report Script
+Always loads model + schema from GCS.
+"""
+
+import os
+import json
+import tempfile
+from pathlib import Path
+
+import pandas as pd
+import joblib
+from fairlearn.metrics import MetricFrame, selection_rate, demographic_parity_difference
+from google.cloud import storage
+
+BUCKET = "heart-disease-mlops-data"
+MODEL_PATH = "models/pipeline.pkl"
+SCHEMA_PATH = "models/schema.json"
+
+
+def download_from_gcs(blob_path: str, dst: str):
+    client = storage.Client()
+    bucket = client.bucket(BUCKET)
+    blob = bucket.blob(blob_path)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    blob.download_to_filename(dst)
+    return dst
+
+
+def load_model_schema():
+    tmp = Path(tempfile.mkdtemp(prefix="fair_gcs_"))
+    model_file = tmp / "pipeline.pkl"
+    schema_file = tmp / "schema.json"
+
+    download_from_gcs(MODEL_PATH, str(model_file))
+    download_from_gcs(SCHEMA_PATH, str(schema_file))
+
+    model = joblib.load(model_file)
+    with open(schema_file) as f:
+        schema = json.load(f)
+
+    return model, schema
+
+
+def main():
+    model, schema = load_model_schema()
+    df = pd.read_csv("data/raw/dataset.csv")
+
+    target = schema["target"]
+    features = schema["feature_names"]
+
+    X = df[features]
+    y = df[target]
+
+    y_pred = model.predict(X)
+
+    sensitive = df["sex"]     # change according to your dataset
+
+    mf = MetricFrame(
+        metrics=selection_rate,
+        y_true=y,
+        y_pred=y_pred,
+        sensitive_features=sensitive
+    )
+
+    Path("reports").mkdir(exist_ok=True)
+    mf.by_group.to_csv("reports/fairness_metrics.csv")
+
+    print("✅ Fairness metrics saved → reports/fairness_metrics.csv")
+
+
+if __name__ == "__main__":
+    main()
