@@ -5,7 +5,7 @@ from ydata_profiling import ProfileReport
 
 CURRENT_METRICS = "reports/data_metrics.json"
 BASELINE_METRICS = "reports/prev_data_metrics.json"
-DRIFT_THRESHOLD = 0.01   # 20% change triggers drift
+DRIFT_THRESHOLD = 0  # 20% change triggers drift
 
 
 def load_stats(path):
