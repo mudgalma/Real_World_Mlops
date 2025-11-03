@@ -65,3 +65,10 @@ jobs:
           git commit -m "Auto-retrain: new model" || echo "No changes"
           dvc push -v
           git push origin main
+
+      - name: Upload model + schema for serving
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          gsutil cp api/model/pipeline.pkl gs://heart-disease-mlops-data/models/pipeline.pkl
+      
