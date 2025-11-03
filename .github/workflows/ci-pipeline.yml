@@ -117,5 +117,18 @@ jobs:
           gsutil cp api/model/pipeline.pkl gs://heart-disease-mlops-data/models/pipeline.pkl
           gsutil cp api/model/schema.json gs://heart-disease-mlops-data/models/schema.json
 
+      - name: Explainability Report (SHAP)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          python scripts/explain.py --mode ci
+      
+      - name: Fairness Report
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          python scripts/fairlearn.py --mode ci
+
       - name: Push model to DVC remote
         run: dvc push -v
+        
