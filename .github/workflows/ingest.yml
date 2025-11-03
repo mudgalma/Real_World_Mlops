@@ -57,18 +57,30 @@ jobs:
           ls -la data/new_batch
 
       - name: Install GitHub CLI
-        if: failure()
         run: sudo apt-get install gh -y
 
+      # - name: Drift check on new batch
+      #   run: python scripts/drift_check.py --mode ingest --batch data/new_batch/new_batch.csv  
+
+
+      # - name: Trigger retrain on drift
+      #   if: steps.drift_check.outcome == 'failure'
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     echo "Drift detected - triggering retrain.yml..."
+      #     gh workflow run retrain.yml --ref main
       - name: Drift check on new batch
-        run: python scripts/drift_check.py --mode ingest --batch data/new_batch/new_batch.csv  
-
-
+        id: drift_check
+        run: |
+          python scripts/drift_check.py --mode ingest --batch data/new_batch/new_batch.csv
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      
       - name: Trigger retrain on drift
-        if: failure()
+        if: steps.drift_check.outputs.exit_code != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Drift detected - triggering retrain.yml..."
+          echo "Drift detected - triggering retrain..."
           gh workflow run retrain.yml --ref main
-
+      
