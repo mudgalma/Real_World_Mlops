@@ -70,6 +70,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Drift detected - triggering retrain.yml..."
-          gh auth login --with-token <<< "${GH_TOKEN}"
           gh workflow run retrain.yml --ref main
 
