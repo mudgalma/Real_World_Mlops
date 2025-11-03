@@ -1,5 +1,9 @@
 name: Weekly Data Ingestion
 
+permissions:
+  contents: read
+  actions: write  
+
 on:
   workflow_dispatch:
   schedule:
@@ -37,12 +41,20 @@ jobs:
           gsutil cp gs://heart-disease-mlops-data/new_batches/latest_batch.csv data/new_batch/new_batch.csv || exit 0
           ls -la data/new_batch
 
+      - name: Install GitHub CLI
+        if: failure()
+        run: sudo apt-get install gh -y
+
       - name: Drift check on new batch
         run: python scripts/drift_check.py --mode ingest --batch data/new_batch/new_batch.csv  
 
 
       - name: Trigger retrain on drift
-        if: failure() && always()
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Drift detected - dispatching retrain workflow"
-          gh workflow run retrain.yml --repo ${{ github.repository }} --ref main
+          echo "Drift detected - triggering retrain.yml..."
+          gh auth login --with-token <<< "${GH_TOKEN}"
+          gh workflow run retrain.yml --ref main
+
