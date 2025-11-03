@@ -31,7 +31,7 @@ def compare_stats(current, baseline):
 
         rel_change = abs(cur_mean - base_mean) / abs(base_mean)
 
-        if rel_change > DRIFT_THRESHOLD:
+        if rel_change >= DRIFT_THRESHOLD:
             print(f"🚨 DRIFT DETECTED for {feature}: change = {rel_change:.2f}")
             return True
 
