@@ -40,20 +40,17 @@ jobs:
           gcloud auth activate-service-account --key-file=gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
+          
       - name: Pull dataset from DVC
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
           echo "Using credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+          
+          # ✅ FIX: Configure DVC to use the service account key
+          dvc remote modify gcsremote credentialpath "$PWD/gcp-key.json" --local
+      
           dvc pull -v
-
-      - name: Append batch to dataset (if exists)
-        run: |
-          if [ -f data/new_batch/new_batch.csv ]; then
-            python scripts/append_batch.py
-          else
-            echo "No new batch to append"
-          fi
 
       - name: Data validation
         run: python scripts/data_validation.py
