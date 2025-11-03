@@ -23,20 +23,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
       
-          # Install pydantic first (needed by FastAPI)
           pip install pydantic==1.10.15
-
-          # Install DVC first (so dependency conflict doesn’t break it)
           pip install "dvc[gs]" --no-cache-dir
-      
-          # 1️⃣ Install Evidently WITHOUT any dependencies
+ 
           pip install evidently==0.7.3 --no-deps
-      
-          # 2️⃣ Install Evidently dependencies manually (ALL except pydantic)
           pip install ujson nltk deprecation typing-inspect uuid6 numpy pandas scipy requests PyYAML jinja2 matplotlib plotly
-      
-          # 3️⃣ Install YOUR requirements file
-          # Ignore Evidently from requirements.txt to avoid reinstalling with deps
+
           sed '/evidently/d' requirements.txt > req-clean.txt
           pip install -r req-clean.txt --no-cache-dir
 
@@ -49,7 +41,11 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
       - name: Pull dataset from DVC
-        run: dvc pull -v
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          echo "Using credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+          dvc pull -v
 
       - name: Append batch to dataset (if exists)
         run: |
