@@ -71,4 +71,5 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
           gsutil cp api/model/pipeline.pkl gs://heart-disease-mlops-data/models/pipeline.pkl
+          gsutil cp api/model/schema.json gs://heart-disease-mlops-data/models/schema.json
       
