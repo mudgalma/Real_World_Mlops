@@ -115,7 +115,7 @@ def main():
         df = pd.read_csv("data/raw/dataset.csv")
         print("📦 Using dataset.csv for explainability")
 
-    features = schema["feature_names"]
+    features = schema["columns"]
     X = prepare_X(df, features)
 
     save_shap(model, X)
