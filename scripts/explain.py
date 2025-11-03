@@ -115,7 +115,13 @@ def main():
         df = pd.read_csv("data/raw/dataset.csv")
         print("📦 Using dataset.csv for explainability")
 
-    features = schema["columns"]
+    all_cols = schema["columns"]
+    if "target" in all_cols:
+        features = [c for c in all_cols if c != "target"]
+    else:
+        raise ValueError("schema.json is missing 'target' in columns list")
+
+    X = prepare_X(df, features)
     X = prepare_X(df, features)
 
     save_shap(model, X)
