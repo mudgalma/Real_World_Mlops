@@ -83,7 +83,7 @@ def save_shap(model, X):
 
     # Summary
     plt.figure()
-    shap.summary_plot(shap_values, X, show=False)
+    shap.summary_plot(shap_values, pre_x, show=False)
     plt.savefig("reports/shap_summary.png", dpi=150)
     plt.close()
 
