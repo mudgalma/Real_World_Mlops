@@ -74,11 +74,12 @@ def prepare_X(df, features):
 
 def save_shap(model, X):
     """Compute & save SHAP reports."""
-    Path("reports").mkdir(exist_ok=True)
+    tree_model = model.named_steps["model"]
+    pre_X = model.named_steps["preprocess"].transform(X)
+    expl = shap.TreeExplainer(tree_model)
+    shap_values = expl.shap_values(pre_X)
 
-    print("⚡ Computing SHAP...")
-    expl = shap.TreeExplainer(model)
-    shap_values = expl.shap_values(X)
+    Path("reports").mkdir(exist_ok=True)
 
     # Summary
     plt.figure()
