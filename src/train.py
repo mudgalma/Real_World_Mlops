@@ -39,7 +39,7 @@ except Exception:
 
 # local imports
 from src.utils import apply_poisoning  # allowed but not used by default
-from src.schema import infer_feature_schema, save_feature_schema  # keep if present
+from src.schema import infer_feature_schema # keep if present
 
 warnings.filterwarnings("ignore")
 
@@ -106,7 +106,11 @@ def save_pipeline(pipeline: Pipeline, model_dir: str):
 
 
 def save_schema_from_df(df: pd.DataFrame, out_path: str):
-    schema = {"columns": df.columns.tolist(), "dtypes": {c: str(df[c].dtype) for c in df.columns}}
+    target_col = "target"
+    schema = {
+        "columns": [c for c in df.columns if c != target_col],
+        "dtypes": {c: str(df[c].dtype) for c in df.columns if c != target_col}
+    }
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(schema, f, indent=2)
