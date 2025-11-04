@@ -83,7 +83,7 @@ def save_shap(model, X):
 
     # Summary
     plt.figure()
-    shap.summary_plot(shap_values, pre_x, show=False)
+    shap.summary_plot(shap_values, pre_X, show=False)
     plt.savefig("reports/shap_summary.png", dpi=150)
     plt.close()
 
@@ -91,7 +91,7 @@ def save_shap(model, X):
     for col in X.columns:
         try:
             plt.figure()
-            shap.dependence_plot(col, shap_values, X, show=False)
+            shap.dependence_plot(col, shap_values, pre_X, show=False)
             plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
             plt.close()
         except:
