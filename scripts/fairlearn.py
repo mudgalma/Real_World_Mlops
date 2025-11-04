@@ -1,35 +1,24 @@
 #!/usr/bin/env python3
 """
-Explainability Script (Production)
+Fairness Report Script (Production)
 Always downloads model + schema from GCS.
-
-Usage:
-  python scripts/explain.py --batch data/new_batch/new_batch.csv   # ingest pipeline
-  python scripts/explain.py                                        # CI pipeline
 """
 
 import os
-import argparse
 import json
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import joblib
-import shap
-import matplotlib.pyplot as plt
+from fairlearn.metrics import MetricFrame, selection_rate
 from google.cloud import storage
-
 
 BUCKET = "heart-disease-mlops-data"
 MODEL_PATH = "models/pipeline.pkl"
 SCHEMA_PATH = "models/schema.json"
 
 
-# -----------------------------
-# GCS download helper
-# -----------------------------
 def download_from_gcs(blob_path: str, dst: str):
     client = storage.Client()
     bucket = client.bucket(BUCKET)
@@ -39,105 +28,53 @@ def download_from_gcs(blob_path: str, dst: str):
     return dst
 
 
-# -----------------------------
-# Load model + schema from GCS
-# -----------------------------
 def load_model_schema():
-    tmp = Path(tempfile.mkdtemp(prefix="explain_gcs_"))
+    tmp = Path(tempfile.mkdtemp(prefix="fair_gcs_"))
+    model_file = tmp / "pipeline.pkl"
+    schema_file = tmp / "schema.json"
 
-    model_local = tmp / "pipeline.pkl"
-    schema_local = tmp / "schema.json"
+    print("⬇️ Downloading model and schema from GCS…")
+    download_from_gcs(MODEL_PATH, str(model_file))
+    download_from_gcs(SCHEMA_PATH, str(schema_file))
 
-    print("⬇️  Downloading model & schema from GCS...")
-    download_from_gcs(MODEL_PATH, str(model_local))
-    download_from_gcs(SCHEMA_PATH, str(schema_local))
-
-    model = joblib.load(model_local)
-    with open(schema_local) as f:
-        schema = json.load(f)
+    model = joblib.load(model_file)
+    schema = json.load(open(schema_file))
 
     return model, schema
 
 
-# -----------------------------
-# Prepare data for SHAP
-# -----------------------------
-def prepare_X(df, features):
-    X = df[features].copy()
-
-    num_cols = X.select_dtypes(include=['int64', 'float64']).columns
-    cat_cols = X.select_dtypes(include=['object', 'category']).columns
-
-    if len(num_cols):
-        X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
-
-    if len(cat_cols):
-        X[cat_cols] = X[cat_cols].fillna("missing")
-        from sklearn.preprocessing import OrdinalEncoder
-        enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-        X[cat_cols] = enc.fit_transform(X[cat_cols])
-
-    return X
-
-
-# -----------------------------
-# SHAP output generation
-# -----------------------------
-def save_shap(model, X):
-    Path("reports").mkdir(exist_ok=True)
-
-    print("⚡ Computing SHAP...")
-    expl = shap.TreeExplainer(model)
-    shap_values = expl.shap_values(X)
-
-    # Global summary
-    plt.figure()
-    shap.summary_plot(shap_values, X, show=False)
-    plt.savefig("reports/shap_summary.png", dpi=150)
-    plt.close()
-
-    # Per-feature plots
-    for col in X.columns:
-        try:
-            plt.figure()
-            shap.dependence_plot(col, shap_values, X, show=False)
-            plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
-            plt.close()
-        except:
-            pass
-
-    print("✅ SHAP reports saved in /reports")
-
-
-# -----------------------------
-# Main
-# -----------------------------
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--batch", type=str, default=None)
-    args = parser.parse_args()
-
-    # Load model + schema from GCS
     model, schema = load_model_schema()
 
-    # Load dataset or batch
-    if args.batch and Path(args.batch).exists():
-        df = pd.read_csv(args.batch)
-        print("📦 Using NEW BATCH for explainability")
-    else:
-        df = pd.read_csv("data/raw/dataset.csv")
-        print("📦 Using FULL DATASET for explainability")
+    # Load dataset (same used in training)
+    df = pd.read_csv("data/raw/dataset.csv")
 
-    # ✅ FIX: schema["columns"] includes "target", REMOVE IT
-    all_cols = schema["columns"]
-    if "target" in all_cols:
-        features = [c for c in all_cols if c != "target"]
-    else:
-        raise ValueError("schema.json is missing 'target' in columns list")
+    # ✅ Schema now contains ONLY features
+    features = schema["columns"]
 
-    X = prepare_X(df, features)
+    # ✅ Target is ONLY in CSV, not in schema
+    if "target" not in df.columns:
+        raise ValueError("Dataset does not contain target column")
 
-    save_shap(model, X)
+    target = df["target"]
+    X = df[features]
+    y_pred = model.predict(X)
+
+    # ✅ Sensitive attribute (you said AGE is sensitive)
+    sensitive = df["age"]
+
+    # Compute fairness metrics
+    mf = MetricFrame(
+        metrics=selection_rate,
+        y_true=target,
+        y_pred=y_pred,
+        sensitive_features=sensitive
+    )
+
+    Path("reports").mkdir(exist_ok=True)
+    mf.by_group.to_csv("reports/fairness_metrics.csv")
+
+    print("✅ Fairness metrics saved → reports/fairness_metrics.csv")
 
 
 if __name__ == "__main__":
