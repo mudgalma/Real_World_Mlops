@@ -82,7 +82,19 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
           python scripts/fairlearn_check.py --batch data/new_batch/new_batch.csv
+      - name: Upload all reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-reports
+          path: reports/
 
+      - name: Upload all reports to GCS
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+        run: |
+          gsutil -m cp reports/* gs://heart-disease-mlops-data/reports/
+          
       - name: Push model to DVC remote
         run: dvc push -v
       
