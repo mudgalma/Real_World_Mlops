@@ -99,37 +99,60 @@ def prepare_X(df, features):
 
 #     print("✅ SHAP reports generated in /reports")
 def save_shap(model, X):
-    """Compute & save SHAP reports."""
+    """Compute SHAP using the SAME preprocessor as training."""
 
-    # ✅ Extract the tree model inside the pipeline
+    # Extract components from pipeline
+    preprocessor = model.named_steps["preprocess"]
     tree_model = model.named_steps["model"]
 
-    # ✅ Transform X using the preprocessing pipeline
-    preprocessed_X = model.named_steps["preprocess"].transform(X)
+    # Transform X exactly as training
+    preprocessed_X = preprocessor.transform(X)
 
-    # ✅ SHAP for tree-based model
+    # Create SHAP explainer
     explainer = shap.TreeExplainer(tree_model)
     shap_values = explainer.shap_values(preprocessed_X)
 
+    # If multiclass, pick last class
+    if isinstance(shap_values, list):
+        sv = shap_values[-1]
+    else:
+        sv = shap_values
+
+    # Features = raw feature names AFTER removing target/sno
+    feature_names = list(X.columns)
+
     Path("reports").mkdir(exist_ok=True)
 
-    # ✅ Summary Plot
-    plt.figure()
-    shap.summary_plot(shap_values, preprocessed_X, show=False)
+    # ✅ Summary plot
+    plt.figure(figsize=(10, 6))
+    shap.summary_plot(sv, preprocessed_X, feature_names=feature_names, show=False)
+    plt.tight_layout()
     plt.savefig("reports/shap_summary.png", dpi=150)
     plt.close()
 
+    # ✅ Feature importance CSV
+    mean_abs = np.mean(np.abs(sv), axis=0)
+    imp_df = pd.DataFrame({"feature": feature_names, "mean_abs_shap": mean_abs})
+    imp_df = imp_df.sort_values("mean_abs_shap", ascending=False)
+    imp_df.to_csv("reports/shap_feature_importance.csv", index=False)
+
     # ✅ Per-feature plots
-    for i, col in enumerate(X.columns):
+    for feat in feature_names:
         try:
-            plt.figure()
-            shap.dependence_plot(i, shap_values, preprocessed_X, show=False)
-            plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
+            plt.figure(figsize=(6, 3))
+            shap.dependence_plot(feat,
+                                  sv,
+                                  preprocessed_X,
+                                  feature_names=feature_names,
+                                  show=False)
+            plt.tight_layout()
+            plt.savefig(f"reports/shap_feature_{feat}.png", dpi=120)
             plt.close()
         except Exception:
             pass
 
     print("✅ SHAP reports generated in /reports")
+
 
 
 def main():
