@@ -81,7 +81,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
-          python scripts/fairlearn.py --batch data/new_batch/new_batch.csv
+          python scripts/fairlearn_check.py --batch data/new_batch/new_batch.csv
 
       - name: Push model to DVC remote
         run: dvc push -v
