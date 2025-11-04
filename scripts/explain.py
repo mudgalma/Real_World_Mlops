@@ -72,29 +72,61 @@ def prepare_X(df, features):
     return X
 
 
+# def save_shap(model, X):
+#     """Compute & save SHAP reports."""
+#     tree_model = model.named_steps["model"]
+#     pre_X = model.named_steps["preprocess"].transform(X)
+#     expl = shap.TreeExplainer(tree_model)
+#     shap_values = expl.shap_values(pre_X)
+
+#     Path("reports").mkdir(exist_ok=True)
+
+#     # Summary
+#     plt.figure()
+#     shap.summary_plot(shap_values, pre_X, show=False)
+#     plt.savefig("reports/shap_summary.png", dpi=150)
+#     plt.close()
+
+#     # Per-feature
+#     for col in X.columns:
+#         try:
+#             plt.figure()
+#             shap.dependence_plot(col, shap_values, pre_X, show=False)
+#             plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
+#             plt.close()
+#         except:
+#             pass
+
+#     print("✅ SHAP reports generated in /reports")
 def save_shap(model, X):
     """Compute & save SHAP reports."""
+
+    # ✅ Extract the tree model inside the pipeline
     tree_model = model.named_steps["model"]
-    pre_X = model.named_steps["preprocess"].transform(X)
-    expl = shap.TreeExplainer(tree_model)
-    shap_values = expl.shap_values(pre_X)
+
+    # ✅ Transform X using the preprocessing pipeline
+    preprocessed_X = model.named_steps["preprocess"].transform(X)
+
+    # ✅ SHAP for tree-based model
+    explainer = shap.TreeExplainer(tree_model)
+    shap_values = explainer.shap_values(preprocessed_X)
 
     Path("reports").mkdir(exist_ok=True)
 
-    # Summary
+    # ✅ Summary Plot
     plt.figure()
-    shap.summary_plot(shap_values, pre_X, show=False)
+    shap.summary_plot(shap_values, preprocessed_X, show=False)
     plt.savefig("reports/shap_summary.png", dpi=150)
     plt.close()
 
-    # Per-feature
-    for col in X.columns:
+    # ✅ Per-feature plots
+    for i, col in enumerate(X.columns):
         try:
             plt.figure()
-            shap.dependence_plot(col, shap_values, pre_X, show=False)
+            shap.dependence_plot(i, shap_values, preprocessed_X, show=False)
             plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
             plt.close()
-        except:
+        except Exception:
             pass
 
     print("✅ SHAP reports generated in /reports")
