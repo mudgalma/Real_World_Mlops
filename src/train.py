@@ -64,7 +64,6 @@ def setup_tracer(project_id: Optional[str] = None):
 
 def build_preprocessor(X: pd.DataFrame):
     """Infer numeric and categorical cols and return ColumnTransformer."""
-    X = df.drop(columns=[target])
     numeric_cols = X.select_dtypes(include=["number"]).columns.tolist()
     cat_cols = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
 
