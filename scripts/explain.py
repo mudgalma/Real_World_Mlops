@@ -54,22 +54,22 @@ def load_model_schema():
     return model, schema
 
 
-def prepare_X(df, features):
-    """Create model-ready input."""
-    X = df[features].copy()
+# def prepare_X(df, features):
+#     """Create model-ready input."""
+#     X = df[features].copy()
 
-    num_cols = X.select_dtypes(include=['int64', 'float64']).columns
-    cat_cols = X.select_dtypes(include=['object', 'category']).columns
+#     num_cols = X.select_dtypes(include=['int64', 'float64']).columns
+#     cat_cols = X.select_dtypes(include=['object', 'category']).columns
 
-    if len(num_cols):
-        X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
-    if len(cat_cols):
-        X[cat_cols] = X[cat_cols].fillna("missing")
-        from sklearn.preprocessing import OrdinalEncoder
-        enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-        X[cat_cols] = enc.fit_transform(X[cat_cols])
+#     if len(num_cols):
+#         X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
+#     if len(cat_cols):
+#         X[cat_cols] = X[cat_cols].fillna("missing")
+#         from sklearn.preprocessing import OrdinalEncoder
+#         enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+#         X[cat_cols] = enc.fit_transform(X[cat_cols])
 
-    return X
+#     return X
 
 
 # def save_shap(model, X):
@@ -131,27 +131,27 @@ def save_shap(model, X):
     plt.close()
 
     # ✅ Feature importance CSV
-    mean_abs = np.mean(np.abs(sv), axis=0)
-    imp_df = pd.DataFrame({"feature": feature_names, "mean_abs_shap": mean_abs})
-    imp_df = imp_df.sort_values("mean_abs_shap", ascending=False)
-    imp_df.to_csv("reports/shap_feature_importance.csv", index=False)
+    # mean_abs = np.mean(np.abs(sv), axis=0)
+    # imp_df = pd.DataFrame({"feature": feature_names, "mean_abs_shap": mean_abs})
+    # imp_df = imp_df.sort_values("mean_abs_shap", ascending=False)
+    # imp_df.to_csv("reports/shap_feature_importance.csv", index=False)
 
     # ✅ Per-feature plots
-    for feat in feature_names:
-        try:
-            plt.figure(figsize=(6, 3))
-            shap.dependence_plot(feat,
-                                  sv,
-                                  preprocessed_X,
-                                  feature_names=feature_names,
-                                  show=False)
-            plt.tight_layout()
-            plt.savefig(f"reports/shap_feature_{feat}.png", dpi=120)
-            plt.close()
-        except Exception:
-            pass
+    # for feat in feature_names:
+    #     try:
+    #         plt.figure(figsize=(6, 3))
+    #         shap.dependence_plot(feat,
+    #                               sv,
+    #                               preprocessed_X,
+    #                               feature_names=feature_names,
+    #                               show=False)
+    #         plt.tight_layout()
+    #         plt.savefig(f"reports/shap_feature_{feat}.png", dpi=120)
+    #         plt.close()
+    #     except Exception:
+    #         pass
 
-    print("✅ SHAP reports generated in /reports")
+    # print("✅ SHAP reports generated in /reports")
 
 
 
@@ -174,10 +174,9 @@ def main():
     all_cols = schema["columns"]
     features = all_cols 
 
-    X = prepare_X(df, features)
-    X = prepare_X(df, features)
+   
 
-    save_shap(model, X)
+    save_shap(model, df[features])
 
 
 if __name__ == "__main__":
