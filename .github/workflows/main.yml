@@ -141,6 +141,14 @@ jobs:
         run: |
           gcloud container clusters get-credentials my-ml-cluster --zone=us-central1-a
 
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+      
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials my-ml-cluster --zone=us-central1-a --project=${{ secrets.GCP_PROJECT_ID }}
+          
       - name: Deploy to GKE
         run: |
           kubectl apply -f deployment.yaml
