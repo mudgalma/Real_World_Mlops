@@ -144,10 +144,15 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
       
-      - name: Install gcloud CLI components
+      - name: Install GKE Auth Plugin
         run: |
-          sudo apt-get update
+          echo "Adding Google Cloud SDK repo..."
+          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+          sudo apt-get install -y apt-transport-https ca-certificates gnupg
+          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.gpg > /dev/null
+          sudo apt-get update -y
           sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+
 
       - name: Configure GKE Auth Plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
