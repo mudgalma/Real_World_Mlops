@@ -16,7 +16,7 @@ __pycache__/
 
 # Ignore mlflow artifacts
 mlruns/
-
+dvc-key.json
 
 # Ignore model binaries (only keep DVC pointer)
 api/model/*.pkl
