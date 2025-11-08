@@ -12,15 +12,17 @@ spec:
       labels:
         app: ml-app
     spec:
-      containers:
+     serviceAccountName: telemetry-access
+     containers:
       - name: ml-app
-        image: us-central1-docker.pkg.dev/<GCP_PROJECT_ID>/my-ml-app-repo/my-ml-app:latest
+        image: us-central1-docker.pkg.dev/uplifted-earth-468613-f3/my-ml-app-repo/my-ml-app:latest
+
         resources:
           requests:
             memory: "512Mi"
-            cpu: "500m"
+            cpu: "250m"
           limits:
             memory: "1Gi"
             cpu: "1"
         ports:
-        - containerPort: 8080
+        - containerPort: 8081

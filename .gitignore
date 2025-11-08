@@ -24,3 +24,6 @@ api/model/*.pkl
 *.swp
 *.swo
 *.save
+app.log
+req-clean.txt
+src/train.py.save.1
