@@ -170,40 +170,26 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
-      - name: Set up gcloud SDK
+      - name: Set up gcloud CLI (with GKE auth)
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          export_default_credentials: true
+          install_components: 'kubectl,gke-gcloud-auth-plugin'
 
-      - name: Verify GCP project ID
+      - name: Get GKE credentials
         run: |
-          echo "🔍 Checking GCP Project ID..."
-          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
-            echo "❌ ERROR: GCP_PROJECT_ID secret not set!"
-            exit 1
-          fi
-          echo "✅ Using Project ID: ${{ secrets.GCP_PROJECT_ID }}"
-          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Configure GKE credentials
-        run: |
-          echo "🔐 Fetching GKE credentials..."
           gcloud container clusters get-credentials my-ml-cluster \
             --zone us-central1-a \
-            --project ${{ secrets.GCP_PROJECT_ID }}
-          echo "✅ GKE credentials configured."
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+            --project=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Deploy to GKE
         run: |
-          echo "🚀 Deploying manifests to GKE..."
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
-          kubectl apply -f hpa.yaml
-          echo "✅ Deployment applied successfully."
+          echo "🚀 Deploying to GKE..."
+          kubectl apply -f deployment.yaml --validate=false
+          kubectl apply -f service.yaml --validate=false
+          kubectl apply -f hpa.yaml --validate=false
+          kubectl rollout status deployment my-ml-app
+
 
 
 
