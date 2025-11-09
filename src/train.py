@@ -149,11 +149,17 @@ def train_main(
             if not os.path.exists(data_path):
                 raise FileNotFoundError(f"Dataset not found at {data_path}. Run `dvc pull` first.")
             df = pd.read_csv(data_path)
+            print(df['target'].value_counts())
             logger.info(json.dumps({"event": "data_loaded", "rows": len(df)}))
 
         # MLflow setup
-        mlflow.set_tracking_uri("mlruns")
-        mlflow.set_experiment("real_world_heart_mlop")
+                # MLflow setup
+        EXPERIMENT_NAME = "real_world_heart_mlop"
+        TRACKING_URI = "mlruns"  # or "mlruns" for local
+
+        mlflow.set_tracking_uri(TRACKING_URI)
+        mlflow.set_experiment(EXPERIMENT_NAME)
+
 
         # Target check
         if target not in df.columns:
@@ -247,6 +253,9 @@ def train_main(
             with tracer.start_as_current_span("model_evaluation") if tracer else nullcontext():
                 preds = pipeline.predict(X_test)
                 if problem_type == "classification":
+                    logger.info(f"y_test sample: {y_test[:10].tolist()}")
+                    logger.info(f"preds sample: {preds[:10].tolist()}")
+  
                     acc = accuracy_score(y_test, preds)
                     f1 = f1_score(y_test, preds, average="weighted")
                     mlflow.log_metrics({"accuracy": acc, "f1_weighted": f1})
@@ -262,6 +271,7 @@ def train_main(
             # Save pipeline locally and log model with signature
             os.makedirs(model_dir, exist_ok=True)
             pipeline_path = save_pipeline(pipeline, model_dir)
+
 
             # Infer signature using a small sample from training input
             try:

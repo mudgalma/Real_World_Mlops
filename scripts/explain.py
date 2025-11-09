@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Explainability Script (Production)
+Explainability Script (Production) - Corrected SHAP Implementation
 Always downloads model + schema from GCS.
 
 Usage:
-  python scripts/explain.py --batch data/new_batch/new_batch.csv   # ingest pipeline
-  python scripts/explain.py                                        # CI pipeline
+  python scripts/explain.py --batch data/new_batch/new_batch.csv
+  python scripts/explain.py  # Uses dataset.csv
 """
 
 import os
@@ -21,11 +21,9 @@ import shap
 import matplotlib.pyplot as plt
 from google.cloud import storage
 
-
 BUCKET = "heart-disease-mlops-data"
 MODEL_PATH = "models/pipeline.pkl"
 SCHEMA_PATH = "models/schema.json"
-
 
 def download_from_gcs(blob_path: str, dst: str):
     """Download file from GCS."""
@@ -35,7 +33,6 @@ def download_from_gcs(blob_path: str, dst: str):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     blob.download_to_filename(dst)
     return dst
-
 
 def load_model_schema():
     """Always load model + schema from GCS."""
@@ -53,107 +50,73 @@ def load_model_schema():
 
     return model, schema
 
-
-# def prepare_X(df, features):
-#     """Create model-ready input."""
-#     X = df[features].copy()
-
-#     num_cols = X.select_dtypes(include=['int64', 'float64']).columns
-#     cat_cols = X.select_dtypes(include=['object', 'category']).columns
-
-#     if len(num_cols):
-#         X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
-#     if len(cat_cols):
-#         X[cat_cols] = X[cat_cols].fillna("missing")
-#         from sklearn.preprocessing import OrdinalEncoder
-#         enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-#         X[cat_cols] = enc.fit_transform(X[cat_cols])
-
-#     return X
-
-
-# def save_shap(model, X):
-#     """Compute & save SHAP reports."""
-#     tree_model = model.named_steps["model"]
-#     pre_X = model.named_steps["preprocess"].transform(X)
-#     expl = shap.TreeExplainer(tree_model)
-#     shap_values = expl.shap_values(pre_X)
-
-#     Path("reports").mkdir(exist_ok=True)
-
-#     # Summary
-#     plt.figure()
-#     shap.summary_plot(shap_values, pre_X, show=False)
-#     plt.savefig("reports/shap_summary.png", dpi=150)
-#     plt.close()
-
-#     # Per-feature
-#     for col in X.columns:
-#         try:
-#             plt.figure()
-#             shap.dependence_plot(col, shap_values, pre_X, show=False)
-#             plt.savefig(f"reports/shap_feature_{col}.png", dpi=150)
-#             plt.close()
-#         except:
-#             pass
-
-#     print("✅ SHAP reports generated in /reports")
 def save_shap(model, X):
-    """Compute SHAP using the SAME preprocessor as training."""
-
+    """
+    Compute SHAP exactly like iris notebook:
+    1. Extract preprocessor and tree model from pipeline
+    2. Transform X using preprocessor (SAME as training)
+    3. Create TreeExplainer with transformed data
+    4. Handle multiclass output (pick last class or use appropriate class)
+    5. Plot with feature names from RAW X (before preprocessing)
+    """
+    
     # Extract components from pipeline
     preprocessor = model.named_steps["preprocess"]
     tree_model = model.named_steps["model"]
-
-    # Transform X exactly as training
+    
+    # Transform X exactly as training (CRITICAL!)
     preprocessed_X = preprocessor.transform(X)
-
-    # Create SHAP explainer
+    
+    # Create SHAP explainer with tree model
     explainer = shap.TreeExplainer(tree_model)
-    shap_values = explainer.shap_values(preprocessed_X)
-
-    # If multiclass, pick last class
-    if isinstance(shap_values, list):
-        sv = shap_values[-1]
+    
+    # Get SHAP values for preprocessed data
+    shap_output = explainer.shap_values(preprocessed_X)
+    
+    # ✅ NORMALIZE OUTPUT (handles both list and Explanation object)
+    if isinstance(shap_output, list):
+        shap_vals_list = shap_output
     else:
-        sv = shap_values
-
-    # Features = raw feature names AFTER removing target/sno
+        # Explanation object - convert to list per class
+        try:
+            vals = np.asarray(shap_output.values)
+            shap_vals_list = [vals[..., i] for i in range(vals.shape[-1])]
+        except Exception:
+            shap_vals_list = [shap_output]
+    
+    # ✅ FIX ARRAY DIMENSIONS (match X.shape[1])
+    fixed_shap = []
+    for arr in shap_vals_list:
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, X.shape[1])
+        if arr.shape[1] > X.shape[1]:
+            arr = arr[:, :X.shape[1]]
+        fixed_shap.append(arr)
+    
+    # ✅ PICK CLASS FOR BINARY (last class = disease positive)
+    if len(fixed_shap) > 1:
+        sv = fixed_shap[-1]  # Last class (disease = 1)
+    else:
+        sv = fixed_shap[0]
+    
+    # ✅ FEATURE NAMES = RAW feature names (before preprocessing)
     feature_names = list(X.columns)
-
+    
     Path("reports").mkdir(exist_ok=True)
-
-    # ✅ Summary plot
+    
+    # ✅ SUMMARY PLOT (exactly like iris notebook)
     plt.figure(figsize=(10, 6))
-    shap.summary_plot(sv, preprocessed_X, feature_names=feature_names, show=False)
+    shap.summary_plot(
+        sv,                      # SHAP values for class
+        preprocessed_X,          # Preprocessed data (for coloring)
+        feature_names=feature_names,  # Raw feature names
+        show=False
+    )
     plt.tight_layout()
-    plt.savefig("reports/shap_summary.png", dpi=150)
+    plt.savefig("reports/shap_summary.png", dpi=200)
     plt.close()
-
-    # ✅ Feature importance CSV
-    # mean_abs = np.mean(np.abs(sv), axis=0)
-    # imp_df = pd.DataFrame({"feature": feature_names, "mean_abs_shap": mean_abs})
-    # imp_df = imp_df.sort_values("mean_abs_shap", ascending=False)
-    # imp_df.to_csv("reports/shap_feature_importance.csv", index=False)
-
-    # ✅ Per-feature plots
-    # for feat in feature_names:
-    #     try:
-    #         plt.figure(figsize=(6, 3))
-    #         shap.dependence_plot(feat,
-    #                               sv,
-    #                               preprocessed_X,
-    #                               feature_names=feature_names,
-    #                               show=False)
-    #         plt.tight_layout()
-    #         plt.savefig(f"reports/shap_feature_{feat}.png", dpi=120)
-    #         plt.close()
-    #     except Exception:
-    #         pass
-
-    # print("✅ SHAP reports generated in /reports")
-
-
+    
+    print(f"✅ SHAP summary saved to reports/shap_summary.png (class: disease)")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -171,13 +134,11 @@ def main():
         df = pd.read_csv("data/raw/dataset.csv")
         print("📦 Using dataset.csv for explainability")
 
-    all_cols = schema["columns"]
-    features = all_cols 
-
-   
-
+    features = schema["columns"]
+    
+    # Generate SHAP (CORRECTED VERSION)
     save_shap(model, df[features])
-
 
 if __name__ == "__main__":
     main()
+
