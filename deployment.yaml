@@ -25,4 +25,4 @@ spec:
             memory: "1Gi"
             cpu: "1"
         ports:
-        - containerPort: 8081
+        - containerPort: 8080
