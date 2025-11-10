@@ -13,7 +13,7 @@ batch = df.sample(30, replace=True).reset_index(drop=True)
 # Introduce drift: increase 'age' by +2 for half rows (example)
 if 'age' in batch.columns:
     idx = np.random.choice(batch.index, size=len(batch)//2, replace=False)
-    batch.loc[idx, 'age'] = batch.loc[idx, 'age'] + 2
+    batch.loc[idx, 'age'] = batch.loc[idx, 'age'] + 5
 
 batch_path = "data/new_batch/new_batch.csv"
 Path("data/new_batch").mkdir(parents=True, exist_ok=True)
