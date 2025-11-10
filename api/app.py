@@ -14,7 +14,7 @@ from google.cloud import storage
 BUCKET_NAME = "heart-disease-mlops-data"
 MODEL_BLOB = "models/pipeline.pkl"
 SCHEMA_BLOB = "models/schema.json"
-LOCAL_MODEL_PATH = "api/model/model.pkl"
+LOCAL_MODEL_PATH = "api/model/pipeline.pkl"
 LOCAL_SCHEMA_PATH = "api/model/schema.json"
 
 app = FastAPI(title="Heart Disease ML API")
@@ -46,6 +46,7 @@ def load_model_and_schema():
     model = joblib.load(LOCAL_MODEL_PATH)
     with open(LOCAL_SCHEMA_PATH, "r") as f:
         schema = json.load(f)
+    logger.info("✅ Model and schema loaded successfully.")                
     return model, schema
 
 # ----------------------------
