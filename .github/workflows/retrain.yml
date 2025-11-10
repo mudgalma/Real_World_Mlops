@@ -76,6 +76,10 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         run: |
           python scripts/explain.py --batch data/new_batch/new_batch.csv  
+
+      - name: Evidently drift report (INGEST mode)
+        run: |
+          python scripts/evidently_drift.py --mode ingest --batch data/new_batch/new_batch.csv
       
       - name: Fairness Report
         env:
