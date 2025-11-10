@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: ml-app-service
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: ml-app
   ports:
     - protocol: TCP
-      port: 8080       # port inside the pod
-      targetPort: 8080 # container port
-      nodePort: 30080  # external port to hit from VM / browser
+      port: 80         # this is the port people will hit
+      targetPort: 8080 # port inside the pod
+# external port to hit from VM / browser
