@@ -188,7 +188,6 @@ jobs:
           kubectl apply -f deployment.yaml --validate=false
           kubectl apply -f service.yaml --validate=false
           kubectl apply -f hpa.yml --validate=false
-          kubectl rollout status deployment my-ml-app
 
 
 
