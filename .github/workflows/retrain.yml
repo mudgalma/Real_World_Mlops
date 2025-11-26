@@ -40,6 +40,9 @@ jobs:
           gcloud auth activate-service-account --key-file=gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
+          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+
+
           
       - name: Pull dataset from DVC
         env:
