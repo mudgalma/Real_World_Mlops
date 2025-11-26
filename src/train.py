@@ -140,7 +140,9 @@ def train_main(
     poison: Optional[str] = None,
     tune: bool = False,
 ):
-    tracer = setup_tracer()  # safe
+    project_id = os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+    tracer = setup_tracer(project_id=project_id)
+    # safe
 
     try:
         # Data loading
