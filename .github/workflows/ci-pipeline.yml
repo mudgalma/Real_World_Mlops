@@ -65,6 +65,10 @@ jobs:
           # Export for later steps
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
+          # Export projectid
+          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+
+
       # ------------------ 5️⃣ Verify bucket access ------------------
       - name: Verify bucket access
         run: |
