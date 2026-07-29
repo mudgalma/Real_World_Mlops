@@ -1,197 +1,145 @@
-# Real World MLOps — End-to-End MLOps Demo
+# Real World MLOps
 
-Elevator pitch
---------------
-A hands-on, production-oriented MLOps demo that covers the full lifecycle: reproducible data & model artifact management (DVC), feature engineering (Feast demo), experiments & model tracking (MLflow + training script), explainability, fairness and drift checks, containerized model serving (FastAPI + Docker), and Kubernetes deployment with autoscaling. Built to demonstrate practical MLOps skills you can walk a recruiter through in a short demo.
+Real-world MLOps projects, tutorials and production-ready examples for deploying ML systems.
 
-Highlights (what to show a recruiter)
--------------------------------------
-- Reproducible pipelines and artifact management with DVC (project contains .dvc metadata).
-- Production-ready training script (src/train.py) with:
-  - MLflow tracking, autologging and model signature inference
-  - Optional hyperparameter tuning (RandomizedSearchCV)
-  - Clean preprocessing pipeline (ColumnTransformer + pipelines)
-  - Stratified train/test split and robust logging
-  - Optional label/data poisoning simulation for robustness testing
-  - Optional OTEL tracing hooks (fail-safe)
-- Model serving via FastAPI (api/app.py):
-  - Health, readiness and liveness endpoints
-  - Bootstraps model + schema from cloud storage (GCS)
-  - Predict endpoint that returns predictions and probabilities
-- Feature engineering demo with Feast (Feast.ipynb)
-- Model quality checks & MLOps tooling under scripts/:
-  - Drift detection with Evidently (scripts/evidently_drift.py)
-  - Drift check utilities (scripts/drift_check.py)
-  - Fairness checks (scripts/fairlearn_check.py)
-  - Explainability helpers (scripts/explain.py)
-  - Data validation & ingestion simulation (scripts/data_validation.py, scripts/simulate_ingest.py)
-- Containerization & deployment:
-  - Dockerfile to build container images
-  - Kubernetes manifests: deployment.yaml, service.yaml, hpa.yml
-- Designed to be demoed locally (docker/uvicorn) or in a cloud-native environment (GCS for artifacts, K8s for deployment).
+This repository collects practical MLOps projects, patterns, and end-to-end examples to help engineers, data scientists, and ML engineers build reliable, reproducible, and maintainable machine learning systems in production.
 
-Stack
------
-- Language(s): Python (training + serving), Jupyter (Feast demo), HTML for reports/notebooks
-- Frameworks / runtimes: scikit-learn for modelling, FastAPI for serving, MLflow for tracking
-- Notable libraries & tools: DVC, Feast, Evidently, Fairlearn, MLflow, OpenTelemetry (optional), Docker, Kubernetes
+## Table of Contents
+- [Overview](#overview)
+- [Projects & Tutorials](#projects--tutorials)
+- [Key Concepts Covered](#key-concepts-covered)
+- [Getting Started](#getting-started)
+- [Typical Project Structure](#typical-project-structure)
+- [How to Use This Repository](#how-to-use-this-repository)
+- [Running Examples / Quickstart](#running-examples--quickstart)
+- [Recommended Tools & Tech Stack](#recommended-tools--tech-stack)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
-Repository structure (top-level)
--------------------------------
+## Overview
+This repository is intended as a practical companion to learning and applying MLOps. Each folder contains an independent, end-to-end project or tutorial demonstrating a specific MLOps pattern — from local experimentation to automated training, CI/CD, deployment, monitoring, and operations.
+
+Goals:
+- Provide production-minded examples with clear, repeatable instructions.
+- Demonstrate infrastructure-as-code, CI/CD, and observability for ML models.
+- Show best practices for reproducibility, testing, and governance.
+
+## Projects & Tutorials
+Each top-level directory represents a project or tutorial. Typical examples include:
+- Model training pipelines (batch and streaming)
+- CI/CD pipelines for ML (testing, validation, model promotion)
+- Containerized serving (Docker, FastAPI, TensorFlow Serving, TorchServe)
+- Kubernetes deployments and autoscaling
+- Feature store usage and data validation
+- Model monitoring, drift detection, and alerting
+- Experiment tracking and reproducible runs (MLflow, DVC)
+- Serving, canary/blue-green deployments, and rollback strategies
+
+(Explore directories for specific READMEs inside each project with step-by-step instructions.)
+
+## Key Concepts Covered
+- Reproducible training and deterministic experiments
+- Data validation & schema checks (e.g., Great Expectations)
+- Feature engineering pipelines and feature stores
+- Model packaging & containerization
+- CI for ML: unit tests, model validation tests, pipeline tests
+- Deployment patterns: serverless, containers, k8s, inference clusters
+- Observability: metrics, logs, tracing, and alerting for models
+- Governance: model versioning, lineage, and promotion workflows
+
+## Getting Started
+Prerequisites (examples — each project may have specific requirements):
+- Python 3.8+
+- Docker
+- git
+- (Optional) Kubernetes (minikube / kind / a cloud k8s cluster)
+- (Optional) MLflow, DVC, or other tools used by a specific project
+
+Clone the repository:
 
 ```
-.dvc/                # DVC internal metadata
-Dockerfile           # Container image
-Feast.ipynb          # Notebook demo for Feast feature store
-README.md            # (this file)
-api/                 # FastAPI serving code + model artifacts location
-  app.py
-  model/             # model artifacts produced by training (pipeline.pkl, schema.json)
-data/
-  raw/               # raw dataset (DVC-managed)
-deployment.yaml      # K8s Deployment manifest
-hpa.yml              # HorizontalPodAutoscaler manifest
-service.yaml         # K8s Service manifest
-reports/             # (report outputs / notebooks / HTML)
-requirements.txt
-scripts/             # useful MLOps utilities: drift/fairness/explain/validation
-src/                 # training & helper code
-  train.py
-  utils.py
-  schema.py
-```
-
-How it fits together
---------------------
-Workflow in short:
-1. Data lives in data/raw (tracked by DVC).
-2. Training executed by `src/train.py` produces a scikit-learn Pipeline and a schema file saved under `api/model/` and tracked/logged to MLflow.
-3. The FastAPI app (api/app.py) loads pipeline and schema from cloud storage or local `api/model/` and serves /predict with health/readiness endpoints.
-4. Monitoring & evaluation scripts (scripts/) enable drift detection, explainability, and fairness checks against production data.
-5. Containerize with Dockerfile and deploy to Kubernetes using the provided manifests (with an HPA example).
-
-Quickstart — demo locally (fast path)
-------------------------------------
-1. Clone and prepare environment
-```bash
 git clone https://github.com/mudgalma/Real_World_Mlops.git
 cd Real_World_Mlops
+```
+
+Then open the project folder you want to try and follow its README for per-project setup, dependencies, and run instructions.
+
+## Typical Project Structure
+A typical project folder follows a structure like:
+- data/ — raw and sample datasets (or pointers to where to download them)
+- src/ — training, evaluation, and preprocessing code
+- notebooks/ — exploratory notebooks and demos
+- infra/ — infrastructure-as-code (Terraform, Helm charts, k8s manifests)
+- ci/ — CI pipeline configs and tests
+- deployment/ — serving containers, manifests, and deployment steps
+- tests/ — unit tests and model validation tests
+- README.md — project-specific instructions and examples
+
+## How to Use This Repository
+1. Pick a project folder that matches what you'd like to learn (e.g., deployment, CI/CD, monitoring).
+2. Read that folder's README for prerequisites and step-by-step instructions.
+3. Run the included scripts or notebooks locally to understand the workflow.
+4. Optionally, provision infrastructure in a sandbox environment (Docker/k8s) to test deployment scenarios.
+5. Study CI config files to see how tests and model checks are automated.
+
+## Running Examples / Quickstart
+Each project includes a quickstart. A common pattern:
+1. Create a virtual environment:
+
+```
 python -m venv .venv
 source .venv/bin/activate
+```
+
+2. Install requirements:
+
+```
 pip install -r requirements.txt
 ```
 
-2. (Optional but recommended) Pull DVC-tracked data & models (configure remote first)
-```bash
-# if DVC remote is configured:
-dvc pull
+3. Prepare data (scripts or download links inside the project)
+4. Run training:
+
+```
+python src/train.py --config config/train.yaml
 ```
 
-3. Train a model (example)
-```bash
-python src/train.py \
-  --data_path data/raw/dataset.csv \
-  --target target \
-  --problem_type classification \
-  --model_dir api/model \
-  --test_size 0.2
-```
-What this produces:
-- api/model/pipeline.pkl (saved scikit-learn Pipeline)
-- api/model/schema.json (feature list + dtypes)
-- MLflow run in local `mlruns/` with metrics: accuracy, f1_weighted (classification) or rmse, r2 (regression), plus train_time_sec
+5. Start a local server for inference:
 
-4. Run the API locally
-```bash
-# dev server
-python -m uvicorn api.app:app --host 0.0.0.0 --port 8080
-# or with reload (dev)
-uvicorn api.app:app --reload --host 0.0.0.0 --port 8080
+```
+docker build -t project-serving .
+docker run -p 8080:8080 project-serving
 ```
 
-5. Health & features
-```bash
-# Check health and get required feature names
-curl http://localhost:8080/health
-# Example output: {"status":"ok","features":["age","sex","..."]}
-```
+Refer to the specific project README for exact commands and environment variables.
 
-6. Predict (example)
-- Build a JSON payload with the features returned above, e.g.:
-```bash
-curl -X POST http://localhost:8080/predict \
-  -H "Content-Type: application/json" \
-  -d '{"age":55,"sex":1,"cp":3,"trestbps":140, "chol":250, "target": 1}'
-```
-- The API returns predictions and probabilities (if supported by the model).
+## Recommended Tools & Tech Stack
+- Experiment tracking: MLflow, Weights & Biases
+- Data versioning: DVC
+- CI/CD: GitHub Actions, Jenkins, or GitLab CI
+- Containerization: Docker
+- Orchestration: Kubernetes (Helm charts)
+- Model serving: FastAPI, TorchServe, TensorFlow Serving, KFServing
+- Monitoring: Prometheus, Grafana, Sentry (for errors), Evidently/WhyLogs (data/model monitoring)
+- IaC: Terraform, Helm
 
-Docker & Kubernetes (deploy demo)
----------------------------------
-- Build image:
-```bash
-docker build -t mlops-demo:latest .
-```
-- Run container:
-```bash
-docker run -p 8080:8080 mlops-demo:latest
-```
-- Deploy to Kubernetes (minikube or cluster):
-```bash
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-kubectl apply -f hpa.yml
-```
-Note: api/app.py expects model artifacts to be available in GCS (configurable). For local demos, ensure `api/model/pipeline.pkl` & `api/model/schema.json` exist inside the container or mock GCS downloads.
+## Contributing
+Contributions are welcome. Ways to contribute:
+- Add a new project or tutorial with clear steps and reproducible artifacts
+- Improve existing README and examples
+- Add tests, CI workflows, and deployment configurations
+- Report issues with reproducibility or missing instructions
+- Send a pull request following the repo contribution guidelines
 
-What to point out in an interview / talking points
--------------------------------------------------
-- Reproducibility: DVC-managed data + artifacts and MLflow experiment tracking.
-- Responsible ML: drift detection (Evidently), fairness checks (Fairlearn), and explainability scripts.
-- Production readiness: structured JSON logging, liveness/readiness probes, autoscaling K8s manifests.
-- Observability: optional OpenTelemetry hooks in training for distributed tracing.
-- DevOps & cloud integration: GCS model bootstrap in the serving app, Docker + K8s manifests, and place for CI secrets for DVC remote.
-- Code quality & engineering: single training script with clear CLI, modular preprocessing + model pipeline, and a serving contract (schema.json) used by the API.
+Please open an issue first to discuss larger changes or new project ideas.
 
-Where to look (key files)
--------------------------
-- Training & preprocessing: src/train.py
-- Utilities: src/utils.py
-- Serving: api/app.py
-- Feature store demo: Feast.ipynb
-- Monitoring & checks: scripts/evidently_drift.py, scripts/drift_check.py, scripts/fairlearn_check.py, scripts/explain.py
-- Deployment: Dockerfile, deployment.yaml, service.yaml, hpa.yml
-- Requirements: requirements.txt
-- DVC metadata: .dvc/
+## License
+Specify the license used by this repository (e.g., MIT). If no license exists, add one or clarify usage rights.
 
-Metrics & artifacts recorded
-----------------------------
-- MLflow metrics: accuracy, f1_weighted (classification) or rmse, r2 (regression), train_time_sec
-- Artifacts: pipeline.pkl, schema.json, and MLflow model/artifact logs
-- Logs: structured JSON logging to stdout for easy ingestion in log aggregators
+## Contact
+Maintainer: mudgalma (GitHub)
+For questions or suggestions, open an issue or create a pull request.
 
-Suggested additions to make this even more hireable
----------------------------------------------------
-- Add `dvc.yaml` and `params.yaml` to make stages reproducible and automatable (README notes this).
-- Add a small sample dataset (or script to download a public one) to make "one-click demos" trivial.
-- CI: add GitHub Actions workflow that runs linting, unit tests, and `dvc repro` or quick smoke training.
-- Add a short demo script or Makefile target that runs a full end-to-end local demo (train → serve → call predict).
-- Add a short README demo GIF or recorded walkthrough for hiring managers.
-
-Quick checklist for a recruiter demo (30–90s)
-----------------------------------------------
-1. git clone → pip install → dvc pull
-2. Run: python src/train.py ...  (highlight MLflow metrics on console)
-3. Run API: uvicorn api.app:app
-4. curl /health then POST /predict
-5. Open scripts/evidently_drift.py to show automated drift checks and explainability scripts
-
-Skills demonstrated (keywords for resume)
------------------------------------------
-MLOps, DVC, MLflow, Feast, feature engineering, model deployment, FastAPI, Docker, Kubernetes, Horizontal Pod Autoscaler (HPA), model monitoring (Evidently), fairness testing (Fairlearn), explainability, Python, scikit-learn, structured logging, observability (OpenTelemetry), CI/CD-ready design.
-
-Contact / Demo
---------------
-If you'd like, I can:
-- Produce a short Makefile to run an end-to-end local demo with one command.
-- Add a sample dataset and `dvc.yaml` + `params.yaml` to make the pipeline reproducible out-of-the-box.
-- Create a short demo script that runs training, serves the model, and posts a sample prediction.
+-----
+Note: Some project directories may include additional, project-specific READMEs and detailed walkthroughs. Start there for hands-on instructions.
